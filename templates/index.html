@@ -1,11 +1,9 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Coin Toss Arena</title>
-
 
 <style>
     * { box-sizing: border-box; }
@@ -134,8 +132,6 @@
         }
     }
 </style>
-
-
 </head>
 
 <body>
@@ -143,6 +139,24 @@
 <div class="app-card">
     <h1 class="title">Coin Toss Arena</h1>
     <p class="subtitle">Set player names, toss the coin, and decide who starts.</p>
+
+    <!-- ✅ MULTIPLAYER SECTION (ADDED) -->
+    <div style="margin-bottom:20px;">
+        <button class="btn btn-secondary" onclick="createGame()">Create Game</button>
+
+        <input id="gameCodeInput" placeholder="Enter Code"
+               style="padding:10px;border-radius:10px;border:none;margin-top:10px;">
+
+        <button class="btn btn-secondary" onclick="joinGame()">Join Game</button>
+
+        <p id="gameCodeDisplay"></p>
+
+        <div id="shareLinks" style="display:none;">
+            <a id="whatsappShare" target="_blank">Share WhatsApp</a><br>
+            <a id="smsShare" target="_blank">Share SMS</a><br>
+            <a id="emailShare" target="_blank">Share Email</a>
+        </div>
+    </div>
 
 <div class="players-section">
     <div class="player-box">
@@ -174,7 +188,6 @@
     <button class="btn btn-secondary" onclick="resetGame()">Reset Game</button>
 </div>
 
-
 </div>
 
 <div class="footer">Developed by Amjad</div>
@@ -183,14 +196,13 @@
     <source src="/static/sound/toss.mp3">
 </audio>
 
-<!-- Confetti -->
-
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
 <script>
 let scorePlayer1 = 0;
 let scorePlayer2 = 0;
 let gameOver = false;
+let gameCode = null; // ✅ ADDED
 
 const player1Input = document.getElementById('player1');
 const player2Input = document.getElementById('player2');
@@ -209,11 +221,7 @@ function syncNames() {
 }
 
 function fireConfetti() {
-    confetti({
-        particleCount: 150,
-        spread: 90,
-        origin: { y: 0.6 }
-    });
+    confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
 }
 
 function setGameWinner(name) {
@@ -221,7 +229,6 @@ function setGameWinner(name) {
     document.getElementById('resultText').textContent = name + " wins the match 🎉";
     document.getElementById('statusText').textContent = "Game over";
     document.getElementById('tossBtn').disabled = true;
-
     fireConfetti();
 }
 
@@ -232,29 +239,34 @@ function tossCoin() {
 
     const coin = document.getElementById('coin');
     coin.classList.add('flipping');
-
     document.getElementById('tossSound').play();
 
+    const url = gameCode ? `/toss?code=${gameCode}` : '/toss';
+
     setTimeout(() => {
-        const result = Math.random() < 0.5 ? 'Heads' : 'Tails';
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                const result = data.result;
 
-        if (result === 'Heads') {
-            scorePlayer1++;
-            coin.textContent = 'HEADS';
-            document.getElementById('resultText').textContent = getPlayer1Name() + " wins this round";
-        } else {
-            scorePlayer2++;
-            coin.textContent = 'TAILS';
-            document.getElementById('resultText').textContent = getPlayer2Name() + " wins this round";
-        }
+                if (result === 'Heads') {
+                    scorePlayer1++;
+                    coin.textContent = 'HEADS';
+                    document.getElementById('resultText').textContent = getPlayer1Name() + " wins this round";
+                } else {
+                    scorePlayer2++;
+                    coin.textContent = 'TAILS';
+                    document.getElementById('resultText').textContent = getPlayer2Name() + " wins this round";
+                }
 
-        document.getElementById('score1').textContent = scorePlayer1;
-        document.getElementById('score2').textContent = scorePlayer2;
+                document.getElementById('score1').textContent = scorePlayer1;
+                document.getElementById('score2').textContent = scorePlayer2;
 
-        if (scorePlayer1 === 2) setGameWinner(getPlayer1Name());
-        if (scorePlayer2 === 2) setGameWinner(getPlayer2Name());
+                if (scorePlayer1 === 2) setGameWinner(getPlayer1Name());
+                if (scorePlayer2 === 2) setGameWinner(getPlayer2Name());
 
-        coin.classList.remove('flipping');
+                coin.classList.remove('flipping');
+            });
     }, 1500);
 }
 
@@ -271,6 +283,43 @@ function resetGame() {
     document.getElementById('tossBtn').disabled = false;
 }
 
+function createGame() {
+    fetch('/create_game')
+        .then(res => res.json())
+        .then(data => {
+            gameCode = data.code;
+            document.getElementById('gameCodeDisplay').innerText = "Game Code: " + gameCode;
+
+            const url = window.location.origin + "?code=" + gameCode;
+
+            document.getElementById('whatsappShare').href =
+                "https://wa.me/?text=Join my game: " + url;
+
+            document.getElementById('smsShare').href =
+                "sms:?body=Join my game: " + url;
+
+            document.getElementById('emailShare').href =
+                "mailto:?subject=Join Game&body=" + url;
+
+            document.getElementById('shareLinks').style.display = 'block';
+        });
+}
+
+function joinGame() {
+    const code = document.getElementById('gameCodeInput').value;
+
+    fetch('/join_game?code=' + code)
+        .then(res => res.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                gameCode = code;
+                alert("Joined game!");
+            }
+        });
+}
+
 player1Input.addEventListener('input', syncNames);
 player2Input.addEventListener('input', syncNames);
 
@@ -279,4 +328,3 @@ syncNames();
 
 </body>
 </html>
-
