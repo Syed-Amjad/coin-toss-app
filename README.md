@@ -8,7 +8,7 @@ It helps players decide who goes first using a coin flip, with score tracking an
 ## 🚀 Live Demo
 
 > Deployed on AWS App Runner
-> *(Add your live URL here)*
+> *https://hhjnc22mj9.us-east-1.awsapprunner.com/*
 
 ---
 
