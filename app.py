@@ -13,7 +13,3 @@ def index():
 def toss():
     result = random.choice(['Heads', 'Tails'])
     return jsonify({'result': result})
-
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)
