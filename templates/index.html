@@ -1,596 +1,968 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>Coin Toss Arena</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
 <style>
+/* ═══════════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════════ */
 :root {
-  --gold: #f5c518;
-  --gold-dim: #c89b0a;
-  --teal: #00d4c8;
-  --bg: #0b111e;
-  --surface: rgba(255,255,255,0.06);
-  --border: rgba(255,255,255,0.1);
-  --text: #e8eaf0;
-  --muted: #7a8499;
-  --danger: #ff4f4f;
-  --success: #22c87a;
+  --bg:           #0d0f1a;
+  --bg2:          #13162a;
+  --surface:      rgba(255,255,255,0.05);
+  --border:       rgba(255,255,255,0.09);
+  --border-glow:  rgba(255,210,60,0.5);
+  --gold:         #ffd23c;
+  --gold-dk:      #c89a00;
+  --gold-glow:    rgba(255,210,60,0.25);
+  --teal:         #00e5cc;
+  --teal-glow:    rgba(0,229,204,0.2);
+  --red:          #ff5252;
+  --green:        #00e676;
+  --text:         #dde4f0;
+  --muted:        #5a6280;
+  --radius:       20px;
 }
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
+
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+}
 
 body {
-  min-height: 100vh;
+  font-family: 'Nunito', sans-serif;
   background: var(--bg);
-  background-image:
-    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(245,197,24,0.08) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 50% at 80% 90%, rgba(0,212,200,0.07) 0%, transparent 60%);
-  font-family: 'DM Sans', sans-serif;
   color: var(--text);
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding: 24px 16px 60px;
+  padding: 20px 16px 72px;
 }
 
-/* ── Header ── */
+/* ── Animated background particles ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 55% 35% at 15% 8%,  rgba(255,210,60,0.07) 0%, transparent 55%),
+    radial-gradient(ellipse 45% 45% at 85% 92%, rgba(0,229,204,0.06) 0%, transparent 55%),
+    radial-gradient(ellipse 30% 30% at 50% 50%, rgba(120,80,255,0.04) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+body > * { position: relative; z-index: 1; }
+
+/* ═══════════════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════════════ */
 .header {
   text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
+  width: 100%;
+  max-width: 520px;
+}
+.header-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.coin-icon {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff7c0, var(--gold) 50%, var(--gold-dk));
+  box-shadow: 0 0 18px var(--gold-glow), inset 0 2px 4px rgba(255,255,255,0.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-5px); }
 }
 .header h1 {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: clamp(40px, 8vw, 64px);
-  letter-spacing: 3px;
-  background: linear-gradient(135deg, var(--gold), var(--teal));
+  font-family: 'Rajdhani', sans-serif;
+  font-size: clamp(32px, 7vw, 52px);
+  font-weight: 700;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, var(--gold) 20%, var(--teal) 80%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   line-height: 1;
 }
 .header p {
+  font-size: 13px;
   color: var(--muted);
-  font-size: 14px;
-  margin-top: 6px;
+  letter-spacing: 0.5px;
 }
 
-/* ── Card ── */
+/* ═══════════════════════════════════════════════════
+   CARD BASE
+═══════════════════════════════════════════════════ */
 .card {
   width: 100%;
-  max-width: 680px;
-  background: var(--surface);
+  max-width: 520px;
+  background: var(--bg2);
   border: 1px solid var(--border);
-  border-radius: 24px;
-  padding: 28px 24px;
-  backdrop-filter: blur(12px);
+  border-radius: var(--radius);
+  padding: 26px 22px;
+  position: relative;
+  overflow: hidden;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,210,60,0.3), transparent);
 }
 
-/* ── Setup screen ── */
-.setup-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-@media(max-width:500px){ .setup-grid { grid-template-columns: 1fr; } }
-
-.input-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.input-group label {
-  font-size: 12px;
-  font-weight: 600;
+/* ═══════════════════════════════════════════════════
+   INPUTS & BUTTONS
+═══════════════════════════════════════════════════ */
+.field-label {
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
   color: var(--muted);
+  margin-bottom: 7px;
+  display: block;
 }
 input[type="text"] {
-  background: rgba(255,255,255,0.07);
+  width: 100%;
+  background: rgba(255,255,255,0.05);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px 14px;
+  padding: 13px 16px;
   color: var(--text);
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Nunito', sans-serif;
   font-size: 15px;
-  width: 100%;
+  font-weight: 600;
   outline: none;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-input[type="text"]:focus { border-color: var(--gold); }
-
-.divider {
-  text-align: center;
-  color: var(--muted);
-  font-size: 12px;
-  margin: 16px 0;
-  position: relative;
+input[type="text"]:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(255,210,60,0.12);
 }
-.divider::before, .divider::after {
-  content: '';
-  display: inline-block;
-  width: 36%;
-  height: 1px;
-  background: var(--border);
-  vertical-align: middle;
-  margin: 0 8px;
-}
-
-.btn-row {
-  display: flex;
-  gap: 10px;
-}
-.btn-row.col { flex-direction: column; }
 
 .btn {
-  padding: 13px 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 22px;
   border-radius: 50px;
   border: none;
   cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
+  font-family: 'Nunito', sans-serif;
   font-size: 15px;
-  font-weight: 700;
-  transition: transform 0.1s, opacity 0.2s, box-shadow 0.2s;
-  flex: 1;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  transition: transform 0.12s, box-shadow 0.2s, opacity 0.2s;
+  white-space: nowrap;
 }
-.btn:active { transform: scale(0.97); }
-.btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.btn:active:not(:disabled) { transform: scale(0.95); }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none !important; }
 
 .btn-gold {
-  background: var(--gold);
-  color: #0b111e;
-  box-shadow: 0 0 20px rgba(245,197,24,0.3);
+  background: linear-gradient(135deg, var(--gold), #ffaa00);
+  color: #1a0f00;
+  box-shadow: 0 4px 20px rgba(255,210,60,0.35);
 }
-.btn-gold:hover:not(:disabled) { box-shadow: 0 0 30px rgba(245,197,24,0.5); }
-
+.btn-gold:hover:not(:disabled) {
+  box-shadow: 0 6px 28px rgba(255,210,60,0.55);
+  transform: translateY(-1px);
+}
 .btn-teal {
-  background: var(--teal);
-  color: #0b111e;
-  box-shadow: 0 0 20px rgba(0,212,200,0.25);
+  background: linear-gradient(135deg, var(--teal), #00b8aa);
+  color: #001a18;
+  box-shadow: 0 4px 18px rgba(0,229,204,0.3);
+}
+.btn-teal:hover:not(:disabled) {
+  box-shadow: 0 6px 24px rgba(0,229,204,0.5);
+  transform: translateY(-1px);
 }
 .btn-ghost {
-  background: rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.06);
   color: var(--text);
   border: 1px solid var(--border);
 }
-.btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.13); }
-.btn-danger {
-  background: rgba(255,79,79,0.15);
-  color: var(--danger);
-  border: 1px solid rgba(255,79,79,0.25);
-}
+.btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
 
-/* ── Toast ── */
-#toast {
-  position: fixed;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%) translateY(-80px);
-  background: #1c2637;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px 20px;
-  font-size: 14px;
-  font-weight: 600;
-  z-index: 999;
-  transition: transform 0.35s cubic-bezier(.34,1.56,.64,1);
-  white-space: nowrap;
-}
-#toast.show { transform: translateX(-50%) translateY(0); }
-#toast.error { border-color: var(--danger); color: var(--danger); }
-#toast.info { border-color: var(--teal); color: var(--teal); }
-#toast.success { border-color: var(--success); color: var(--success); }
+.btn-row { display: flex; gap: 10px; }
+.btn-full { width: 100%; }
 
-/* ── Lobby waiting ── */
-.waiting-box {
-  text-align: center;
-  padding: 20px 0;
-}
-.code-display {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 52px;
-  letter-spacing: 8px;
-  color: var(--gold);
-  margin: 8px 0;
-}
-.pulse-dot {
-  display: inline-block;
-  width: 10px; height: 10px;
-  border-radius: 50%;
-  background: var(--teal);
-  margin-right: 8px;
-  animation: pulse 1.4s infinite;
-}
-@keyframes pulse {
-  0%,100%{ opacity:1; transform:scale(1); }
-  50%{ opacity:0.4; transform:scale(0.7); }
-}
-.share-links {
+.or-divider {
   display: flex;
-  gap: 8px;
-  justify-content: center;
-  margin-top: 16px;
-  flex-wrap: wrap;
-}
-.share-btn {
-  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  border: none;
-  font-family: 'DM Sans', sans-serif;
-}
-.share-wa { background: #25d366; color: white; }
-.share-sms { background: #4a90e2; color: white; }
-.share-copy { background: rgba(255,255,255,0.1); color: var(--text); border: 1px solid var(--border); }
-
-/* ── Game arena ── */
-#gameArena { display: none; }
-
-.scoreboard {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 12px;
-  margin-bottom: 24px;
-}
-.score-card {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 16px;
-  text-align: center;
-  transition: border-color 0.3s, box-shadow 0.3s;
-  position: relative;
-}
-.score-card.active-turn {
-  border-color: var(--gold);
-  box-shadow: 0 0 20px rgba(245,197,24,0.2);
-}
-.score-card .p-name {
-  font-size: 13px;
-  font-weight: 600;
+  margin: 18px 0;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.score-card .p-score {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 56px;
-  line-height: 1;
-  color: var(--text);
-}
-.score-card .you-badge {
-  position: absolute;
-  top: 8px; right: 8px;
-  background: var(--teal);
-  color: #0b111e;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 20px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
+}
+.or-divider::before, .or-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
 }
 
-/* ── Coin ── */
-.coin-wrap {
-  display: flex;
-  justify-content: center;
-  margin: 20px 0;
-  perspective: 600px;
-}
-.coin {
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 28px;
-  letter-spacing: 2px;
-  background: radial-gradient(circle at 35% 35%, #ffe680, #d4a800 60%, #8a6500);
-  box-shadow:
-    0 8px 32px rgba(0,0,0,0.5),
-    inset 0 2px 4px rgba(255,255,255,0.3),
-    0 0 0 6px rgba(245,197,24,0.15);
-  color: #3d2800;
-  transition: transform 0.15s;
-  transform-style: preserve-3d;
-  user-select: none;
-}
-.coin.spin {
-  animation: coinSpin 1.4s cubic-bezier(.4,0,.2,1) forwards;
-}
-@keyframes coinSpin {
-  0%   { transform: rotateY(0deg) scale(1); }
-  15%  { transform: rotateY(360deg) scale(1.05); }
-  35%  { transform: rotateY(720deg) scale(1.1); }
-  55%  { transform: rotateY(1080deg) scale(1.05); }
-  75%  { transform: rotateY(1440deg) scale(1.02); }
-  90%  { transform: rotateY(1800deg) scale(1); }
-  100% { transform: rotateY(2160deg) scale(1); }
-}
-
-/* ── Status bar ── */
-.status-bar {
-  text-align: center;
-  margin: 4px 0 20px;
-}
-.status-bar h2 {
-  font-size: 20px;
-  font-weight: 700;
-  min-height: 30px;
-}
-.status-bar p {
-  font-size: 13px;
-  color: var(--muted);
-  margin-top: 4px;
-}
-.turn-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(245,197,24,0.1);
-  border: 1px solid rgba(245,197,24,0.25);
-  border-radius: 20px;
-  padding: 5px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--gold);
-  margin-top: 8px;
-}
-
-/* ── Game over banner ── */
-.winner-banner {
-  text-align: center;
-  padding: 20px;
-  background: linear-gradient(135deg, rgba(245,197,24,0.1), rgba(0,212,200,0.08));
-  border: 1px solid rgba(245,197,24,0.3);
-  border-radius: 18px;
-  margin-bottom: 20px;
-}
-.winner-banner h2 {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 40px;
-  letter-spacing: 2px;
-  color: var(--gold);
-}
-.winner-banner p { color: var(--muted); font-size: 14px; margin-top: 4px; }
-
-/* ── Screens ── */
+/* ═══════════════════════════════════════════════════
+   SCREENS
+═══════════════════════════════════════════════════ */
 .screen { display: none; }
 .screen.active { display: block; }
 
-/* ── Footer ── */
-.footer {
+/* ─── LOBBY ─── */
+.lobby-code-wrap {
+  text-align: center;
+  padding: 10px 0 20px;
+}
+.lobby-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.lobby-code {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 58px;
+  font-weight: 700;
+  letter-spacing: 10px;
+  color: var(--gold);
+  text-shadow: 0 0 24px var(--gold-glow);
+  line-height: 1;
+}
+.lobby-hint {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 8px 0 20px;
+}
+
+/* Share icons row — icon-only */
+.share-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+.share-icon-btn {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  text-decoration: none;
+  border: none;
+  transition: transform 0.15s, box-shadow 0.15s;
+  flex-shrink: 0;
+}
+.share-icon-btn:hover { transform: scale(1.1); }
+.share-icon-btn svg { display: block; }
+.si-wa   { background: #25d366; box-shadow: 0 4px 14px rgba(37,211,102,0.4); }
+.si-sms  { background: #4a90e2; box-shadow: 0 4px 14px rgba(74,144,226,0.4); }
+.si-mail { background: #ea4335; box-shadow: 0 4px 14px rgba(234,67,53,0.4); }
+.si-copy { background: rgba(255,255,255,0.1); border: 1px solid var(--border); box-shadow: none; }
+.si-copy:hover { background: rgba(255,255,255,0.15); }
+
+.waiting-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.dot-anim {
+  display: flex; gap: 4px;
+}
+.dot-anim span {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--teal);
+  animation: dotBounce 1.2s infinite;
+}
+.dot-anim span:nth-child(2) { animation-delay: 0.2s; }
+.dot-anim span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dotBounce {
+  0%,80%,100% { transform: scale(0.7); opacity: 0.4; }
+  40%          { transform: scale(1);   opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════
+   GAME ARENA
+═══════════════════════════════════════════════════ */
+#gameArena { display: none; }
+
+/* ── Player panels ── */
+.players-wrap {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.player-panel {
+  background: rgba(255,255,255,0.04);
+  border: 2px solid var(--border);
+  border-radius: 18px;
+  padding: 14px 12px 12px;
+  text-align: center;
+  position: relative;
+  transition: border-color 0.35s, box-shadow 0.35s, background 0.35s;
+  min-width: 0;
+}
+.player-panel.active-turn {
+  border-color: var(--gold);
+  background: rgba(255,210,60,0.07);
+  box-shadow: 0 0 28px rgba(255,210,60,0.2);
+}
+.player-panel.winner-flash {
+  animation: winFlash 0.5s ease 2;
+}
+@keyframes winFlash {
+  0%,100% { background: rgba(255,255,255,0.04); }
+  50%      { background: rgba(0,230,118,0.15); border-color: var(--green); }
+}
+
+.panel-avatar {
+  width: 46px; height: 46px;
+  border-radius: 50%;
+  margin: 0 auto 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  font-weight: 800;
+  color: #1a0f00;
+  background: linear-gradient(135deg, var(--gold), #ff8c00);
+  flex-shrink: 0;
+}
+.panel-avatar.p2 {
+  background: linear-gradient(135deg, var(--teal), #0080ff);
+  color: #001a18;
+}
+.panel-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 6px;
+}
+.panel-score {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 52px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--text);
+}
+.panel-score.changed {
+  animation: scorePop 0.4s cubic-bezier(.36,1.56,.64,1);
+}
+@keyframes scorePop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.35); color: var(--gold); }
+  100% { transform: scale(1); }
+}
+
+/* You badge */
+.you-tag {
+  display: inline-block;
+  background: var(--teal);
+  color: #001a18;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin-top: 4px;
+}
+
+/* VS divider */
+.vs-badge {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* ── Turn arrow indicator ── */
+.turn-arrow-wrap {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.turn-arrow {
+  width: 0; height: 0;
+  border-top: 10px solid transparent;
+  border-bottom: 10px solid transparent;
+  opacity: 0;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.turn-arrow.left  { border-right: 14px solid var(--gold); transform: translateX(8px); }
+.turn-arrow.right { border-left:  14px solid var(--gold); transform: translateX(-8px); }
+.turn-arrow.show  { opacity: 1; transform: translateX(0); }
+
+/* ── Coin ── */
+.coin-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 6px 0 18px;
+}
+.coin-outer {
+  position: relative;
+  width: 150px; height: 150px;
+  margin: 0 auto;
+}
+.coin-ring {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  background: linear-gradient(135deg, var(--gold), var(--teal)) border-box;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: destination-out;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.coin-outer.my-turn .coin-ring {
+  opacity: 1;
+  animation: ringPulse 2s ease-in-out infinite;
+}
+@keyframes ringPulse {
+  0%,100% { opacity: 0.4; }
+  50%      { opacity: 1; }
+}
+
+.coin {
+  width: 150px; height: 150px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  background: radial-gradient(circle at 32% 28%, #fff7b0, var(--gold) 50%, var(--gold-dk) 80%, #5a3d00);
+  box-shadow:
+    0 10px 36px rgba(0,0,0,0.55),
+    inset 0 3px 6px rgba(255,255,255,0.35),
+    0 0 0 4px rgba(255,210,60,0.12);
+  color: #3d2800;
+  transform-style: preserve-3d;
+  position: relative;
+  z-index: 1;
+}
+.coin.spin {
+  animation: coinFlip 1.5s cubic-bezier(.4,0,.2,1) forwards;
+}
+@keyframes coinFlip {
+  0%   { transform: rotateY(0)     scale(1);    }
+  20%  { transform: rotateY(540deg)  scale(1.08); }
+  45%  { transform: rotateY(1080deg) scale(1.12); }
+  70%  { transform: rotateY(1620deg) scale(1.06); }
+  88%  { transform: rotateY(2060deg) scale(1.01); }
+  100% { transform: rotateY(2160deg) scale(1);    }
+}
+
+/* ── Status area ── */
+.status-area {
+  text-align: center;
+  margin-bottom: 18px;
+}
+.round-result {
+  font-size: 18px;
+  font-weight: 800;
+  min-height: 26px;
+  letter-spacing: 0.2px;
+}
+.turn-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 9px;
+  padding: 7px 18px;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  transition: background 0.3s, color 0.3s, border-color 0.3s;
+}
+.turn-pill.my-turn {
+  background: rgba(255,210,60,0.14);
+  border: 1px solid rgba(255,210,60,0.4);
+  color: var(--gold);
+}
+.turn-pill.opp-turn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.turn-pill .pip {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.turn-pill.my-turn .pip {
+  animation: pipPulse 1s ease-in-out infinite;
+}
+@keyframes pipPulse {
+  0%,100% { opacity:1; transform: scale(1); }
+  50%      { opacity:0.5; transform: scale(0.6); }
+}
+.match-label {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 5px;
+}
+
+/* ── Action buttons ── */
+.action-row {
+  display: flex;
+  gap: 10px;
+}
+.toss-btn-wrap { flex: 1; position: relative; }
+#tossBtn {
+  width: 100%;
+  font-size: 17px;
+  padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+#tossBtn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+  transform: translateX(-100%);
+  pointer-events: none;
+}
+#tossBtn.my-turn::after {
+  animation: shimmer 2s ease-in-out infinite;
+}
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ── Game over banner ── */
+.gameover-banner {
+  display: none;
+  background: linear-gradient(135deg, rgba(255,210,60,0.1), rgba(0,229,204,0.06));
+  border: 1px solid rgba(255,210,60,0.35);
+  border-radius: 16px;
+  padding: 18px;
+  text-align: center;
+  margin-bottom: 18px;
+  animation: bannerIn 0.5s cubic-bezier(.36,1.56,.64,1);
+}
+@keyframes bannerIn {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+.gameover-banner h2 {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+.gameover-banner p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+/* ── Room code footer ── */
+.room-footer {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.room-footer b {
+  color: var(--teal);
+  letter-spacing: 2px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 14px;
+}
+
+/* ═══════════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════════ */
+#toast {
   position: fixed;
-  bottom: 12px;
-  right: 16px;
+  top: 16px; left: 50%;
+  transform: translateX(-50%) translateY(-100px);
+  background: #1d2236;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 11px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  z-index: 9999;
+  transition: transform 0.32s cubic-bezier(.34,1.56,.64,1);
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 90vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#toast.show       { transform: translateX(-50%) translateY(0); }
+#toast.t-error    { border-color: var(--red);   color: var(--red); }
+#toast.t-success  { border-color: var(--green); color: var(--green); }
+#toast.t-info     { border-color: var(--teal);  color: var(--teal); }
+#toast.t-warn     { border-color: var(--gold);  color: var(--gold); }
+
+/* ═══════════════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════════════ */
+.page-footer {
+  position: fixed;
+  bottom: 12px; right: 16px;
   font-size: 11px;
   color: var(--muted);
+}
+
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════════ */
+@media (max-width: 420px) {
+  .coin-outer, .coin { width: 130px; height: 130px; }
+  .panel-score { font-size: 44px; }
+  .lobby-code { font-size: 44px; letter-spacing: 7px; }
 }
 </style>
 </head>
 <body>
 
+<!-- Toast -->
 <div id="toast"></div>
 
+<!-- Header -->
 <div class="header">
-  <h1>Coin Toss Arena</h1>
-  <p>Real-time 2-player — anywhere in the world</p>
+  <div class="header-logo">
+    <div class="coin-icon">🪙</div>
+    <h1>Coin Toss Arena</h1>
+  </div>
+  <p>Real-time multiplayer · Best of 3</p>
 </div>
 
-<!-- ── SETUP SCREEN ── -->
-<div class="card" id="setupScreen">
+<!-- ══════════════════════════════════════
+     SETUP CARD
+══════════════════════════════════════ -->
+<div class="card" id="setupCard">
 
+  <!-- Screen: Home -->
   <div class="screen active" id="screenHome">
-    <div class="input-group" style="margin-bottom:18px;">
-      <label>Your Name</label>
-      <input type="text" id="myName" placeholder="Enter your name" maxlength="20" />
-    </div>
+    <label class="field-label">Your Name</label>
+    <input type="text" id="myName" placeholder="Enter your name" maxlength="20"
+           style="margin-bottom:18px;" autocomplete="off"/>
 
-    <button class="btn btn-gold" style="width:100%;margin-bottom:14px;" onclick="startCreate()">
-      🎮 Create New Game
+    <button class="btn btn-gold btn-full" onclick="startCreate()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+      Create New Game
     </button>
 
-    <div class="divider">or join existing</div>
+    <div class="or-divider">or join existing</div>
 
-    <div style="display:flex;gap:10px;margin-top:14px;">
-      <input type="text" id="joinCode" placeholder="Enter 6-char code" maxlength="6"
-             style="text-transform:uppercase;letter-spacing:3px;font-family:'Bebas Neue',sans-serif;font-size:20px;" />
-      <button class="btn btn-teal" style="flex:0 0 auto;padding:13px 22px;" onclick="startJoin()">Join</button>
+    <label class="field-label">Game Code</label>
+    <div style="display:flex;gap:10px;">
+      <input type="text" id="joinCode" placeholder="E.g. AB3X9K" maxlength="6"
+             style="text-transform:uppercase;letter-spacing:4px;font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;"
+             autocomplete="off" onkeydown="if(event.key==='Enter')startJoin()"/>
+      <button class="btn btn-teal" style="flex:0 0 auto;padding:13px 20px;" onclick="startJoin()">Join</button>
     </div>
   </div>
 
-  <!-- Lobby (waiting for player 2) -->
+  <!-- Screen: Lobby -->
   <div class="screen" id="screenLobby">
-    <div class="waiting-box">
-      <p style="color:var(--muted);font-size:13px;text-transform:uppercase;letter-spacing:1px;">Your Game Code</p>
-      <div class="code-display" id="lobbyCode">------</div>
-      <p style="font-size:13px;color:var(--muted);">Share this code with your opponent</p>
+    <div class="lobby-code-wrap">
+      <div class="lobby-label">Game Code</div>
+      <div class="lobby-code" id="lobbyCode">------</div>
+      <div class="lobby-hint">Share this code with your opponent</div>
 
-      <div class="share-links" id="shareLinks">
-        <a class="share-btn share-wa" id="waLink" target="_blank">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.999 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.943-1.42A9.955 9.955 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2z" fill-rule="evenodd" clip-rule="evenodd"/></svg>
-          WhatsApp
+      <!-- Icon-only share row -->
+      <div class="share-row">
+        <!-- WhatsApp -->
+        <a class="share-icon-btn si-wa" id="waLink" target="_blank" title="Share on WhatsApp">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347zM12 2C6.477 2 2 6.477 2 12c0 1.89.525 3.66 1.438 5.168L2 22l4.943-1.42A9.955 9.955 0 0 0 12 22c5.523 0 10-4.477 10-10S17.523 2 12 2z"/>
+          </svg>
         </a>
-        <button class="share-btn share-copy" onclick="copyCode()">📋 Copy Link</button>
+        <!-- SMS -->
+        <a class="share-icon-btn si-sms" id="smsLink" title="Share via SMS">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
+            <path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm0 14H5.17L4 17.17V4h16v12z"/>
+            <path d="M7 9h10v2H7zm0-3h10v2H7zm0 6h7v2H7z"/>
+          </svg>
+        </a>
+        <!-- Email -->
+        <a class="share-icon-btn si-mail" id="emailLink" title="Share via Email">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="white">
+            <path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+          </svg>
+        </a>
+        <!-- Copy -->
+        <button class="share-icon-btn si-copy" onclick="copyLink()" title="Copy link">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--text)">
+            <path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/>
+          </svg>
+        </button>
       </div>
 
-      <div style="margin-top:24px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-size:14px;">
-        <span class="pulse-dot"></span>
-        Waiting for opponent to join…
+      <!-- Waiting animation -->
+      <div class="waiting-row">
+        <div class="dot-anim"><span></span><span></span><span></span></div>
+        Waiting for opponent…
       </div>
     </div>
   </div>
 
-</div>
+</div><!-- /setupCard -->
 
-<!-- ── GAME ARENA ── -->
+<!-- ══════════════════════════════════════
+     GAME ARENA CARD
+══════════════════════════════════════ -->
 <div class="card" id="gameArena">
 
-  <!-- Winner banner (hidden until game over) -->
-  <div class="winner-banner" id="winnerBanner" style="display:none;">
-    <h2 id="winnerText">🏆 Player Wins!</h2>
-    <p id="winnerSub">Final Score</p>
+  <!-- Game over banner -->
+  <div class="gameover-banner" id="gameoverBanner">
+    <h2 id="gameoverTitle">🏆 Winner!</h2>
+    <p id="gameoverSub"></p>
   </div>
 
-  <!-- Scoreboard -->
-  <div class="scoreboard">
-    <div class="score-card" id="scoreCard0">
-      <div class="p-name" id="pName0">Player 1</div>
-      <div class="p-score" id="pScore0">0</div>
+  <!-- Turn arrows -->
+  <div class="turn-arrow-wrap">
+    <div class="turn-arrow left"  id="arrowLeft"></div>
+    <div class="turn-arrow right" id="arrowRight"></div>
+  </div>
+
+  <!-- Player panels -->
+  <div class="players-wrap">
+    <!-- Player 1 -->
+    <div class="player-panel" id="panel0">
+      <div class="panel-avatar" id="avatar0">?</div>
+      <div class="panel-name" id="pName0">Player 1</div>
+      <div class="panel-score" id="pScore0">0</div>
+      <div id="youTag0"></div>
     </div>
-    <div class="score-card" id="scoreCard1">
-      <div class="p-name" id="pName1">Player 2</div>
-      <div class="p-score" id="pScore1">0</div>
+
+    <div class="vs-badge">VS</div>
+
+    <!-- Player 2 -->
+    <div class="player-panel" id="panel1">
+      <div class="panel-avatar p2" id="avatar1">?</div>
+      <div class="panel-name" id="pName1">Player 2</div>
+      <div class="panel-score" id="pScore1">0</div>
+      <div id="youTag1"></div>
     </div>
   </div>
 
   <!-- Coin -->
-  <div class="coin-wrap">
-    <div class="coin" id="coin">TOSS</div>
+  <div class="coin-section">
+    <div class="coin-outer" id="coinOuter">
+      <div class="coin-ring"></div>
+      <div class="coin" id="coin">TOSS</div>
+    </div>
   </div>
 
   <!-- Status -->
-  <div class="status-bar">
-    <h2 id="resultText">Get Ready!</h2>
-    <div class="turn-indicator" id="turnIndicator">Waiting…</div>
-    <p style="margin-top:8px;color:var(--muted);font-size:13px;" id="statusSub">First to 2 wins</p>
+  <div class="status-area">
+    <div class="round-result" id="roundResult">Get Ready!</div>
+    <div class="turn-pill opp-turn" id="turnPill">
+      <span class="pip"></span>
+      <span id="turnPillText">Waiting for players…</span>
+    </div>
+    <div class="match-label" id="matchLabel">First to 2 wins the match</div>
   </div>
 
   <!-- Buttons -->
-  <div class="btn-row" style="margin-top:4px;">
-    <button class="btn btn-gold" id="tossBtn" onclick="doToss()" disabled>🪙 Toss!</button>
-    <button class="btn btn-ghost" onclick="requestReset()">🔄 Reset</button>
+  <div class="action-row">
+    <div class="toss-btn-wrap">
+      <button class="btn btn-gold" id="tossBtn" onclick="doToss()" disabled>
+        🪙 Toss the Coin
+      </button>
+    </div>
+    <button class="btn btn-ghost" onclick="requestReset()" style="flex:0 0 auto;padding:14px 18px;" title="Reset Game">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4C7.58 4 4 7.58 4 12s3.58 8 8 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+    </button>
   </div>
 
-  <div style="text-align:center;margin-top:16px;">
-    <span style="font-size:12px;color:var(--muted);">Room: <b id="roomCodeLabel" style="color:var(--teal);letter-spacing:2px;"></b></span>
-  </div>
-</div>
+  <div class="room-footer">Room: <b id="roomCode">------</b></div>
 
-<div class="footer">Developed by Amjad</div>
+</div><!-- /gameArena -->
 
+<div class="page-footer">Developed by Amjad</div>
+
+<!-- ══════════════════════════════════════
+     SCRIPT
+══════════════════════════════════════ -->
 <script>
 // ─── State ───────────────────────────────────────────────────────────────────
-let socket = null;
-let myCode = null;
-let myIndex = -1;   // 0 or 1
-let whoseTurn = 0;
-let gameOver = false;
-let names = ['Player 1', 'Player 2'];
+let socket     = null;
+let myCode     = null;
+let myIndex    = -1;       // 0 or 1
+let whoseTurn  = 0;
+let gameOver   = false;
+let names      = ['Player 1', 'Player 2'];
+let tossLocked = false;
 
 // ─── Toast ───────────────────────────────────────────────────────────────────
-let toastTimer;
-function showToast(msg, type = 'info') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'show ' + type;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.className = ''; }, 3200);
+let _toastTimer;
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show t-${type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.className = ''; }, 3500);
 }
 
-// ─── Socket init ─────────────────────────────────────────────────────────────
+// ─── Socket ───────────────────────────────────────────────────────────────────
 function initSocket() {
-  if (socket) return;
-  socket = io();
+  if (socket && socket.connected) return;
 
-  socket.on('connect', () => { /* connected */ });
+  socket = io({ reconnection: true, reconnectionAttempts: 5, reconnectionDelay: 1000 });
 
-  socket.on('error', d => showToast(d.msg, 'error'));
+  socket.on('connect', () => {
+    // Re-join if we were already in a game
+    if (myCode && myIndex >= 0) {
+      socket.emit('join_game', { code: myCode, name: names[myIndex] });
+    }
+  });
+
+  socket.on('connect_error', () => toast('Connection issue — retrying…', 'warn'));
+
+  socket.on('error', d => toast(d.msg, 'error'));
 
   socket.on('joined', d => {
     myIndex = d.your_index;
-    myCode = d.code;
-    // Add "You" badge
-    addYouBadge(myIndex);
+    myCode  = d.code;
+    setYouBadge(myIndex);
   });
 
   socket.on('lobby_update', d => {
     names = d.names;
-    refreshNames();
+    // If player 2 just joined while we're in lobby, update display
+    if (d.player_count === 2) {
+      toast(`${names[1]} joined the game!`, 'success');
+    }
   });
 
   socket.on('game_start', d => {
-    names = d.names;
+    names     = d.names;
     whoseTurn = d.whose_turn;
-    gameOver = false;
-    showArena();
+    gameOver  = false;
+    tossLocked = false;
+
     refreshNames();
-    refreshTurn();
-    showToast('Game started! 🎉', 'success');
+    setYouBadge(myIndex);
+    showArena();
+    updateTurnUI();
+    toast('Game started! 🎉', 'success');
   });
 
   socket.on('toss_result', d => {
+    // Start spin animation
     const coin = document.getElementById('coin');
     coin.classList.remove('spin');
-    void coin.offsetWidth;
+    void coin.offsetWidth; // reflow
     coin.classList.add('spin');
 
-    names = d.names;
-    whoseTurn = d.whose_turn;
-    gameOver = d.game_over;
+    // Update state
+    names      = d.names;
+    whoseTurn  = d.whose_turn;
+    gameOver   = d.game_over;
 
     setTimeout(() => {
-      coin.textContent = d.result.toUpperCase();
-      document.getElementById('pScore0').textContent = d.scores[0];
-      document.getElementById('pScore1').textContent = d.scores[1];
-      document.getElementById('resultText').textContent =
-        `${d.round_winner_name} wins this round!`;
-      refreshTurn();
+      // Update coin face
+      coin.textContent = d.coin_face.toUpperCase();
+
+      // Animate score of round winner
+      const scoreEl = document.getElementById('pScore' + d.winner_index);
+      scoreEl.textContent = d.scores[d.winner_index];
+      scoreEl.classList.remove('changed');
+      void scoreEl.offsetWidth;
+      scoreEl.classList.add('changed');
+
+      // Update other score too
+      const otherIdx = 1 - d.winner_index;
+      document.getElementById('pScore' + otherIdx).textContent = d.scores[otherIdx];
+
+      // Flash winner panel
+      const wp = document.getElementById('panel' + d.winner_index);
+      wp.classList.add('winner-flash');
+      setTimeout(() => wp.classList.remove('winner-flash'), 1100);
+
+      document.getElementById('roundResult').textContent =
+        `${d.round_winner_name} wins this round! 🎯`;
+
+      tossLocked = false;
 
       if (d.game_over) {
         showGameOver(d.winner_name, d.scores);
+      } else {
+        updateTurnUI();
       }
-    }, 1450);
+    }, 1550);
   });
 
   socket.on('game_reset', d => {
-    names = d.names;
-    whoseTurn = d.whose_turn;
-    gameOver = false;
+    names      = d.names;
+    whoseTurn  = d.whose_turn;
+    gameOver   = false;
+    tossLocked = false;
 
     const coin = document.getElementById('coin');
     coin.classList.remove('spin');
     coin.textContent = 'TOSS';
 
-    document.getElementById('pScore0').textContent = 0;
-    document.getElementById('pScore1').textContent = 0;
-    document.getElementById('resultText').textContent = 'Get Ready!';
-    document.getElementById('winnerBanner').style.display = 'none';
+    document.getElementById('pScore0').textContent = '0';
+    document.getElementById('pScore1').textContent = '0';
+    document.getElementById('roundResult').textContent = 'New round — Go!';
+    document.getElementById('gameoverBanner').style.display = 'none';
 
     refreshNames();
-    refreshTurn();
-    showToast('Game reset! New round starting.', 'info');
+    updateTurnUI();
+    toast('Game reset! New match starting.', 'info');
   });
 
   socket.on('player_left', d => {
-    showToast(`${d.name} disconnected 😢`, 'error');
+    toast(`${d.name} left the game 😢`, 'error');
     document.getElementById('tossBtn').disabled = true;
-    document.getElementById('turnIndicator').textContent = 'Opponent left the game';
+    document.getElementById('tossBtn').classList.remove('my-turn');
+    document.getElementById('coinOuter').classList.remove('my-turn');
+    document.getElementById('turnPill').className = 'turn-pill opp-turn';
+    document.getElementById('turnPillText').textContent = 'Opponent disconnected';
+    hideArrows();
   });
 }
 
-// ─── Setup actions ───────────────────────────────────────────────────────────
-function getMyName() {
+// ─── Setup ────────────────────────────────────────────────────────────────────
+function myName() {
   return document.getElementById('myName').value.trim() || 'Player';
 }
 
@@ -600,35 +972,41 @@ function startCreate() {
     .then(r => r.json())
     .then(d => {
       myCode = d.code;
-      socket.emit('join_game', { code: myCode, name: getMyName() });
+      socket.emit('join_game', { code: myCode, name: myName() });
 
-      // Show lobby
+      // Populate lobby
       document.getElementById('lobbyCode').textContent = myCode;
-      const link = window.location.origin + '?code=' + myCode;
-      document.getElementById('waLink').href =
-        `https://wa.me/?text=Join my Coin Toss Arena game! Code: ${myCode} — ${link}`;
-      showScreen('screenLobby');
+      const link = `${location.origin}?code=${myCode}`;
+      const msg  = encodeURIComponent(`Join my Coin Toss game! Code: ${myCode} → ${link}`);
+      document.getElementById('waLink').href    = `https://wa.me/?text=${msg}`;
+      document.getElementById('smsLink').href   = `sms:?body=${msg}`;
+      document.getElementById('emailLink').href = `mailto:?subject=Join+my+Coin+Toss+game&body=${msg}`;
+
+      showSetupScreen('screenLobby');
     })
-    .catch(() => showToast('Could not create game. Try again.', 'error'));
+    .catch(() => toast('Could not create game. Try again.', 'error'));
 }
 
 function startJoin() {
   const code = document.getElementById('joinCode').value.trim().toUpperCase();
-  if (code.length < 4) { showToast('Enter a valid game code.', 'error'); return; }
+  if (code.length < 4) { toast('Enter a valid game code.', 'error'); return; }
   initSocket();
   myCode = code;
-  socket.emit('join_game', { code, name: getMyName() });
+  socket.emit('join_game', { code, name: myName() });
 }
 
-function copyCode() {
-  const link = window.location.origin + '?code=' + myCode;
-  navigator.clipboard.writeText(link).then(() => showToast('Link copied!', 'success'));
+function copyLink() {
+  const link = `${location.origin}?code=${myCode}`;
+  navigator.clipboard.writeText(link)
+    .then(() => toast('Link copied to clipboard!', 'success'))
+    .catch(() => toast('Copy failed — share the code manually.', 'warn'));
 }
 
 // ─── Game actions ─────────────────────────────────────────────────────────────
 function doToss() {
-  if (!socket || !myCode || gameOver) return;
-  if (myIndex !== whoseTurn) { showToast("It's not your turn!", 'error'); return; }
+  if (!socket || !myCode || gameOver || tossLocked) return;
+  if (myIndex !== whoseTurn) { toast("Hold on — it's not your turn!", 'warn'); return; }
+  tossLocked = true;
   document.getElementById('tossBtn').disabled = true;
   socket.emit('toss', { code: myCode });
 }
@@ -638,70 +1016,118 @@ function requestReset() {
   socket.emit('reset_game', { code: myCode });
 }
 
-// ─── UI helpers ──────────────────────────────────────────────────────────────
-function showScreen(id) {
-  document.querySelectorAll('#setupScreen .screen').forEach(s => s.classList.remove('active'));
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+function showSetupScreen(id) {
+  document.querySelectorAll('#setupCard .screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
 
 function showArena() {
-  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('setupCard').style.display  = 'none';
   document.getElementById('gameArena').style.display = 'block';
-  document.getElementById('roomCodeLabel').textContent = myCode;
-  refreshNames();
+  document.getElementById('roomCode').textContent = myCode;
 }
 
 function refreshNames() {
   document.getElementById('pName0').textContent = names[0];
   document.getElementById('pName1').textContent = names[1];
+  // Avatars: first letter
+  document.getElementById('avatar0').textContent = names[0].charAt(0).toUpperCase();
+  document.getElementById('avatar1').textContent = names[1].charAt(0).toUpperCase();
 }
 
-function addYouBadge(idx) {
-  const card = document.getElementById('scoreCard' + idx);
-  if (!card.querySelector('.you-badge')) {
-    const badge = document.createElement('span');
-    badge.className = 'you-badge';
-    badge.textContent = 'You';
-    card.appendChild(badge);
+function setYouBadge(idx) {
+  // Clear both first
+  document.getElementById('youTag0').innerHTML = '';
+  document.getElementById('youTag1').innerHTML = '';
+  if (idx < 0) return;
+  const tag = document.createElement('div');
+  tag.className = 'you-tag';
+  tag.textContent = 'YOU';
+  document.getElementById('youTag' + idx).appendChild(tag);
+}
+
+function updateTurnUI() {
+  const isMyTurn = (myIndex === whoseTurn) && !gameOver;
+
+  // Toss button
+  const btn = document.getElementById('tossBtn');
+  btn.disabled = !isMyTurn;
+  btn.classList.toggle('my-turn', isMyTurn);
+
+  // Coin ring
+  document.getElementById('coinOuter').classList.toggle('my-turn', isMyTurn);
+
+  // Player panel highlights
+  document.getElementById('panel0').classList.toggle('active-turn', whoseTurn === 0 && !gameOver);
+  document.getElementById('panel1').classList.toggle('active-turn', whoseTurn === 1 && !gameOver);
+
+  // Turn pill
+  const pill = document.getElementById('turnPill');
+  const pillTxt = document.getElementById('turnPillText');
+  if (isMyTurn) {
+    pill.className = 'turn-pill my-turn';
+    pillTxt.textContent = '🎯 Your turn — tap Toss!';
+  } else {
+    pill.className = 'turn-pill opp-turn';
+    pillTxt.textContent = `⏳ ${names[whoseTurn]}'s turn…`;
+  }
+
+  // Arrow indicators — point at the active player's panel
+  updateArrows();
+}
+
+function updateArrows() {
+  const left  = document.getElementById('arrowLeft');
+  const right = document.getElementById('arrowRight');
+  left.classList.remove('show');
+  right.classList.remove('show');
+  if (gameOver) return;
+
+  if (whoseTurn === 0) {
+    left.classList.add('show');   // arrow pointing left toward P1
+  } else {
+    right.classList.add('show');  // arrow pointing right toward P2
   }
 }
 
-function refreshTurn() {
-  const isMyTurn = myIndex === whoseTurn;
-  const btn = document.getElementById('tossBtn');
-  btn.disabled = !isMyTurn || gameOver;
-
-  document.getElementById('scoreCard0').classList.toggle('active-turn', whoseTurn === 0);
-  document.getElementById('scoreCard1').classList.toggle('active-turn', whoseTurn === 1);
-
-  const turnName = names[whoseTurn];
-  document.getElementById('turnIndicator').textContent =
-    isMyTurn ? '🎯 Your turn — press Toss!' : `⏳ ${turnName}'s turn`;
+function hideArrows() {
+  document.getElementById('arrowLeft').classList.remove('show');
+  document.getElementById('arrowRight').classList.remove('show');
 }
 
 function showGameOver(winnerName, scores) {
   gameOver = true;
+  tossLocked = false;
   document.getElementById('tossBtn').disabled = true;
+  document.getElementById('tossBtn').classList.remove('my-turn');
+  document.getElementById('coinOuter').classList.remove('my-turn');
+  document.getElementById('panel0').classList.remove('active-turn');
+  document.getElementById('panel1').classList.remove('active-turn');
+  hideArrows();
 
-  const banner = document.getElementById('winnerBanner');
+  const banner = document.getElementById('gameoverBanner');
   banner.style.display = 'block';
-  document.getElementById('winnerText').textContent = `🏆 ${winnerName} Wins!`;
-  document.getElementById('winnerSub').textContent =
-    `${scores[0]} – ${scores[1]}`;
-  document.getElementById('turnIndicator').textContent = 'Game Over';
+  document.getElementById('gameoverTitle').textContent = `🏆 ${winnerName} Wins!`;
+  document.getElementById('gameoverSub').textContent =
+    `Final score: ${scores[0]} – ${scores[1]}`;
+  document.getElementById('turnPill').className = 'turn-pill opp-turn';
+  document.getElementById('turnPillText').textContent = 'Match complete!';
 
-  if (winnerName === names[myIndex]) {
-    confetti({ particleCount: 180, spread: 100, origin: { y: 0.55 } });
+  // Confetti for the winner only
+  if (myIndex >= 0 && winnerName === names[myIndex]) {
+    confetti({ particleCount: 220, spread: 110, origin: { y: 0.5 } });
+    setTimeout(() => confetti({ particleCount: 80, spread: 60, angle: 60, origin: { x: 0, y: 0.6 } }), 400);
+    setTimeout(() => confetti({ particleCount: 80, spread: 60, angle: 120, origin: { x: 1, y: 0.6 } }), 700);
   }
 }
 
-// ─── Auto-join via URL param ──────────────────────────────────────────────────
+// ─── Auto-fill code from URL param ───────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get('code');
+  const code = new URLSearchParams(location.search).get('code');
   if (code) {
     document.getElementById('joinCode').value = code.toUpperCase();
-    showToast(`Code pre-filled: ${code.toUpperCase()}. Enter your name and join!`, 'info');
+    toast(`Code ${code.toUpperCase()} ready — enter your name and Join!`, 'info');
   }
 });
 </script>
